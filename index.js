@@ -4,10 +4,7 @@ const admin = require("firebase-admin");
 const cors = require("cors");
 
 // Init Firebase Admin using environment variable
-let serviceAccount = JSON.parse(process.env.SERVICE_ACCOUNT_KEY);
-
-// Fix PEM formatting for the private key
-serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
+const serviceAccount = JSON.parse(process.env.SERVICE_ACCOUNT_KEY);
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
