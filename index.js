@@ -18,6 +18,7 @@ app.use(cors());
 async function authenticate(req, res, next) {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    console.warn("Missing or invalid Authorization header");
     return res.status(403).json({ error: "Unauthorized" });
   }
 
@@ -27,36 +28,43 @@ async function authenticate(req, res, next) {
     req.user = decodedToken;
     next();
   } catch (err) {
-    res.status(403).json({ error: "Invalid token" });
+    console.error("Token verification failed:", err);
+    res.status(403).json({ error: "Invalid token", details: err.message });
   }
 }
 
 // POST /score → save a score
 app.post("/score", authenticate, async (req, res) => {
+  console.log("Incoming score request:", req.body);
+
   const { score } = req.body;
   if (!score) {
+    console.warn("Score missing in request body");
     return res.status(400).json({ error: "Score is required" });
   }
 
   const userId = req.user.uid;
-  const username = req.user.email || "Anonymous"; // you could store displayName
+  const username = req.user.email || "Anonymous";
 
   try {
-    await db.collection("scores").add({
+    const docRef = await db.collection("scores").add({
       userId,
       username,
       score,
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
     });
+    console.log(`Score saved with ID: ${docRef.id}`);
     res.json({ status: "success", message: "Score submitted" });
   } catch (err) {
-    res.status(500).json({ error: "Failed to save score" });
+    console.error("Firestore error:", err);
+    res.status(500).json({ error: "Failed to save score", details: err.message });
   }
 });
 
 // GET /scores?limit=10 → return top N scores
 app.get("/scores", async (req, res) => {
   const limit = parseInt(req.query.limit) || 10;
+  console.log(`Fetching top ${limit} scores`);
   try {
     const snapshot = await db
       .collection("scores")
@@ -67,7 +75,8 @@ app.get("/scores", async (req, res) => {
     const scores = snapshot.docs.map((doc) => doc.data());
     res.json(scores);
   } catch (err) {
-    res.status(500).json({ error: "Failed to fetch scores" });
+    console.error("Firestore fetch error:", err);
+    res.status(500).json({ error: "Failed to fetch scores", details: err.message });
   }
 });
 
