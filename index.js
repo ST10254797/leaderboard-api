@@ -3,8 +3,9 @@ const bodyParser = require("body-parser");
 const admin = require("firebase-admin");
 const cors = require("cors");
 
-// Init Firebase Admin
-const serviceAccount = require("./serviceAccountKey.json");
+// Init Firebase Admin using environment variable
+const serviceAccount = JSON.parse(process.env.SERVICE_ACCOUNT_KEY);
+
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
 });
