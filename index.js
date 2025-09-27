@@ -81,6 +81,9 @@ app.get("/scores", async (req, res) => {
   }
 });
 
+app.get("/", (req, res) => {
+  res.json({ status: "ok", message: "Leaderboard API is live! Use POST /score to submit a score or GET /scores to fetch top scores." });
+});
 // Start server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
