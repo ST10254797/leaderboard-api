@@ -73,13 +73,23 @@ app.get("/scores", async (req, res) => {
       .limit(limit)
       .get();
 
-    const scores = snapshot.docs.map((doc) => doc.data());
+    const scores = snapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        userId: data.userId,
+        username: data.username,
+        score: data.score,
+        timestamp: data.timestamp ? data.timestamp.toDate().toISOString() : null
+      };
+    });
+
     res.json(scores);
   } catch (err) {
     console.error("Firestore fetch error:", err);
     res.status(500).json({ error: "Failed to fetch scores", details: err.message });
   }
 });
+
 
 app.get("/", (req, res) => {
   res.json({ status: "ok", message: "Leaderboard API is live! Use POST /score to submit a score or GET /scores to fetch top scores." });
