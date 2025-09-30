@@ -15,11 +15,10 @@ const app = express();
 app.use(bodyParser.json());
 app.use(cors());
 
-// Middleware to validate Firebase token
+// Middleware: validate Firebase token
 async function authenticate(req, res, next) {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    console.warn("Missing or invalid Authorization header");
     return res.status(403).json({ error: "Unauthorized" });
   }
 
@@ -34,13 +33,10 @@ async function authenticate(req, res, next) {
   }
 }
 
-// POST /score → save a score
-app.post("/score", authenticate, async (req, res) => {
-  console.log("Incoming score request:", req.body);
-
+// POST /scores → save a score
+app.post("/scores", authenticate, async (req, res) => {
   const { score } = req.body;
-  if (!score) {
-    console.warn("Score missing in request body");
+  if (score === undefined) {
     return res.status(400).json({ error: "Score is required" });
   }
 
@@ -48,14 +44,21 @@ app.post("/score", authenticate, async (req, res) => {
   const username = req.user.email || "Anonymous";
 
   try {
-    const docRef = await db.collection("scores").add({
-      userId,
-      username,
-      score,
-      timestamp: admin.firestore.FieldValue.serverTimestamp(),
-    });
-    console.log(`Score saved with ID: ${docRef.id}`);
-    res.json({ status: "success", message: "Score submitted" });
+    // Keep highest score per user
+    const userDoc = db.collection("scores").doc(userId);
+    const snapshot = await userDoc.get();
+
+    if (!snapshot.exists || snapshot.data().score < score) {
+      await userDoc.set({
+        userId,
+        username,
+        score,
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      return res.json({ status: "success", message: "New high score saved!" });
+    } else {
+      return res.json({ status: "ok", message: "Score not higher than current high score" });
+    }
   } catch (err) {
     console.error("Firestore error:", err);
     res.status(500).json({ error: "Failed to save score", details: err.message });
@@ -65,7 +68,6 @@ app.post("/score", authenticate, async (req, res) => {
 // GET /scores?limit=10 → return top N scores
 app.get("/scores", async (req, res) => {
   const limit = parseInt(req.query.limit) || 10;
-  console.log(`Fetching top ${limit} scores`);
   try {
     const snapshot = await db
       .collection("scores")
@@ -79,7 +81,7 @@ app.get("/scores", async (req, res) => {
         userId: data.userId,
         username: data.username,
         score: data.score,
-        timestamp: data.timestamp ? data.timestamp.toDate().toISOString() : null
+        timestamp: data.timestamp ? data.timestamp.toDate().toISOString() : null,
       };
     });
 
@@ -90,10 +92,11 @@ app.get("/scores", async (req, res) => {
   }
 });
 
-
+// Root check
 app.get("/", (req, res) => {
-  res.json({ status: "ok", message: "Leaderboard API is live! Use POST /score to submit a score or GET /scores to fetch top scores." });
+  res.json({ status: "ok", message: "Leaderboard API is live! Use POST /scores to submit a score or GET /scores to fetch top scores." });
 });
+
 // Start server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
